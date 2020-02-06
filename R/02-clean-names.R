@@ -21,8 +21,12 @@ author_cap <- function(x) {
 author_cap <- Vectorize(author_cap)
 
 pub_list <- pubs %>%
+  mutate(cited_references = map(cited_references, function(x) {
+    str_split(x, "; ") %>%
+      flatten_chr()
+  })) %>%
   select(cited_references) %>%
-  unnest() %>%
+  unnest(cols = c(cited_references)) %>%
   distinct() %>%
   separate(cited_references, into = c("author", "year", "junk"), sep = ", ",
            extra = "merge", fill = "right", remove = FALSE) %>%
@@ -56,6 +60,9 @@ pub_list <- pubs %>%
            fill = "right") %>%
   separate(first, into = c("init1", "rest"), remove = FALSE, sep = 1,
            extra = "merge") %>%
+  mutate(last = str_replace(last, "\\[ ", "")) %>%
+  filter(last != "", !str_detect(last, "ANONYMOUS"),
+         !str_detect(last, "^\\[")) %>%
   group_split(last, init1)
 
 pub_list <- map_dfr(pub_list, function(x) {

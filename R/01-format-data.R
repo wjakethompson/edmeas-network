@@ -1,21 +1,26 @@
 library(tidyverse)
+library(bibliometrix)
 library(here)
 library(fs)
 
-pubs <- map_df(dir_ls(here("data-raw")), read_delim, delim = "\t",
-                   escape_double = FALSE, trim_ws = TRUE) %>%
-  select(publication_type = PT,
+pubs <- readFiles(dir_ls(here("data-raw", "plain-text"), regexp = "\\.txt"))
+pubs <- convert2df(file = pubs, dbsource = "isi", format = "plaintext")
+
+pubs %>%
+  as_tibble(rownames = "identifier") %>%
+  select(identifier,
+         publication_type = PT,
          authors = AU,
-         book_authors = BA,
-         editors = BE,
-         book_group_authors = GP,
+         # book_authors = BA,
+         # editors = BE,
+         # book_group_authors = GP,
          authors_full_name = AF,
-         book_authors_full_name = BF,
+         # book_authors_full_name = BF,
          group_authors = CA,
          document_title = TI,
          publication_name = SO,
-         book_series_title = SE,
-         book_series_subtitle = BS,
+         # book_series_title = SE,
+         # book_series_subtitle = BS,
          language = LA,
          document_type = DT,
          conference_title = CT,
@@ -44,24 +49,24 @@ pubs <- map_df(dir_ls(here("data-raw")), read_delim, delim = "\t",
          publisher_address = PA,
          issn = SN,
          eissn = EI,
-         isbn = BN,
+         # isbn = BN,
          source_abbreviation = J9,
          iso_source_abbreviation = JI,
          publication_date = PD,
          year_published = PY,
          volume = VL,
          issue = IS,
-         part_number = PN,
-         supplement = SU,
+         # part_number = PN,
+         # supplement = SU,
          special_issue = SI,
-         meeting_abstract = MA,
+         # meeting_abstract = MA,
          beginning_page = BP,
          ending_page = EP,
          article_number = AR,
          doi = DI,
-         book_doi = D2,
+         # book_doi = D2,
          early_access_date = EA,
-         early_access_year = EY,
+         # early_access_year = EY,
          page_count = PG,
          categories = WC,
          research_areas = SC,
@@ -69,16 +74,11 @@ pubs <- map_df(dir_ls(here("data-raw")), read_delim, delim = "\t",
          accession_number = UT,
          pubmed_id = PM,
          open_access_id = OA,
-         esi_highly_cited = HC,
-         esi_hot_paper = HP)
-
-pubs %>%
-  select(authors, document_title, publication_name, author_keywords,
+         # esi_highly_cited = HC,
+         # esi_hot_paper = HP
+  ) %>%
+  select(identifier, authors, document_title, publication_name, author_keywords,
          keywords_plus, cited_references, source_abbreviation,
          iso_source_abbreviation, year_published, categories,
          research_areas) %>%
-  mutate(cited_references = map(cited_references, function(x) {
-    str_split(x, "; ") %>%
-      flatten_chr()
-  })) %>%
   write_rds(path = here("data/cleaned-pubs.rds"), compress = "gz")

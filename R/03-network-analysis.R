@@ -2,7 +2,9 @@
 library(tidyverse)
 library(tidygraph)
 library(ggraph)
+library(colorblindr)
 library(here)
+library(glue)
 
 
 ### Data -----------------------------------------------------------------------
@@ -30,8 +32,12 @@ make_connections <- function(x, lookup) {
 
 ### Determine citations to include ---------------------------------------------
 inc_pubs <- pubs %>%
+  mutate(cited_references = map(cited_references, function(x) {
+    str_split(x, "; ") %>%
+      flatten_chr()
+  })) %>%
   select(cited_references) %>%
-  unnest() %>%
+  unnest(cols = c(cited_references)) %>%
   left_join(lookup, by = "cited_references") %>%
   select(-cited_references) %>%
   rename(cited_references = new_label) %>%
@@ -41,9 +47,13 @@ inc_pubs <- pubs %>%
   filter(n >= 15)
 
 connections <- pubs %>%
-  mutate(matches = map(cited_references, make_connections, lookup = lookup)) %>%
+  mutate(cited_references = map(cited_references, function(x) {
+    str_split(x, "; ") %>%
+      flatten_chr()
+  }),
+         matches = map(cited_references, make_connections, lookup = lookup)) %>%
   select(matches) %>%
-  unnest() %>%
+  unnest(cols = c(matches)) %>%
   count(cite1, cite2) %>%
   arrange(desc(n)) %>%
   filter(n >= 14,
@@ -90,9 +100,10 @@ network <- tbl_graph(nodes = nodes, edges = edges, directed = FALSE) %>%
                                               directed = FALSE),
          louvain = group_louvain(weights = weight),
          louvain = factor(louvain, levels = 1:7,
-                          labels =c ("IRT", "DIF", "DCM", "SEM",
-                                     "Dimensionality", "Bayesian",
-                                     "Model fit")))
+                          labels =c ("IRT", "DCM", "DIF", "SEM",
+                                     "Multi-Dimensionality", "Local Item Dependence",
+                                     "Model fit"))) %>%
+  arrange(louvain, desc(betweenness))
 
 write_rds(network, here("data/network.rds"), compress = "gz")
 
@@ -100,8 +111,12 @@ write_rds(network, here("data/network.rds"), compress = "gz")
 ### Descriptive information ----------------------------------------------------
 total_pubs <- nrow(pubs)
 cited_references <- pubs %>%
+  mutate(cited_references = map(cited_references, function(x) {
+    str_split(x, "; ") %>%
+      flatten_chr()
+  })) %>%
   select(cited_references) %>%
-  unnest() %>%
+  unnest(cols = c(cited_references)) %>%
   left_join(lookup, by = "cited_references") %>%
   select(-cited_references) %>%
   rename(cited_references = new_label) %>%
@@ -127,7 +142,7 @@ top_pubs <- network %>%
 
 
 ### Circular layout ------------------------------------------------------------
-ggraph(network, layout = "linear", circular = TRUE, sort.by = "louvain") +
+plot <- ggraph(network, layout = "linear", circular = TRUE) +
   geom_edge_arc2(aes(alpha = weight, edge_color = node.louvain),
                  width = 1, show.legend = FALSE) +
   geom_node_point(aes(color = louvain, size = betweenness)) +
@@ -138,58 +153,11 @@ ggraph(network, layout = "linear", circular = TRUE, sort.by = "louvain") +
   coord_fixed() +
   labs(color = NULL) +
   theme_graph() +
-  theme(legend.position = "bottom",
+  theme(legend.position = "right",
         text = element_text(family = "Arial Narrow")) +
   guides(size = FALSE,
-         color = guide_legend(byrow = TRUE, nrow = 1,
+         color = guide_legend(byrow = FALSE, ncol = 2,
                               override.aes = list(size = 3)))
 
-
-
-
-  
-
-  
-  
-
-  
-  
-  ggraph(network, layout = "dh") +
-    geom_edge_link2(aes(width = weight, alpha = weight, edge_color = node.louvain),
-                    show.legend = FALSE) +
-    geom_node_point(aes(fill = louvain, size = betweenness), shape = 21,
-                    color = "black") +
-    scale_alpha_continuous(range = c(0, 0.5)) +
-    scale_fill_OkabeIto() +
-    scale_edge_color_manual(values = palette_OkabeIto[1:7]) +
-    theme_graph() +
-    guides(size = FALSE, fill = guide_legend(override.aes = list(size = 2)))
-  
-#nicely
-#dh
-#graphopt
-#fr
-#lgl
-
-starting_coords <- matrix(data = runif(nrow(nodes) * 2, min = -100, max = 100),
-                          ncol = 2)
-
-plots <- map(seq_len(20), function(x, network) {
-  ret_plot <- ggraph(network, layout = "dh") +
-    geom_edge_link2(aes(width = weight, alpha = weight, edge_color = node.louvain),
-                    show.legend = FALSE) +
-    geom_node_point(aes(fill = louvain, size = betweenness), shape = 21,
-                    color = "black") +
-    scale_alpha_continuous(range = c(0, 0.5)) +
-    scale_edge_color_manual(values = palette_OkabeIto[1:6]) +
-    theme_graph() +
-    guides(size = FALSE, fill = guide_legend(override.aes = list(size = 2)))
-  
-  return(ret_plot)
-}, network = network)
-
-iwalk(plots, function(plot, index) {
-  ggsave(filename = glue("layout_{index}.png"), plot = plot,
-         path = here("layouts"), width = 8, height = 8, units = "in",
-         dpi = "retina")
-})
+ggsave(filename = "network.png", plot = plot, path = here(),
+       width = 8, height = 6, units = "in", dpi = "retina")
