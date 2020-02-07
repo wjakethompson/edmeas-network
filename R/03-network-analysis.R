@@ -100,8 +100,12 @@ network <- tbl_graph(nodes = nodes, edges = edges, directed = FALSE) %>%
                                               directed = FALSE),
          louvain = group_louvain(weights = weight),
          louvain = factor(louvain, levels = 1:7,
-                          labels =c ("IRT", "DCM", "DIF", "SEM",
-                                     "Multi-Dimensionality", "Local Item Dependence",
+                          labels =c ("Item Response Theory",
+                                     "Diagnostic Classification Models",
+                                     "Differential Item Functioning",
+                                     "Structural Equation Modeling",
+                                     "Multi-Dimensionality",
+                                     "Local Item Dependence",
                                      "Model fit"))) %>%
   arrange(louvain, desc(betweenness))
 
@@ -156,7 +160,7 @@ plot <- ggraph(network, layout = "linear", circular = TRUE) +
   theme(legend.position = "right",
         text = element_text(family = "Arial Narrow")) +
   guides(size = FALSE,
-         color = guide_legend(byrow = FALSE, ncol = 2,
+         color = guide_legend(byrow = FALSE, ncol = 1,
                               override.aes = list(size = 3)))
 
 ggsave(filename = "network.png", plot = plot, path = here(),
