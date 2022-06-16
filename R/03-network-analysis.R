@@ -73,6 +73,9 @@ while(min(table(c(connections$cite1, connections$cite2))) < threshold) {
 
 
 ### Create network -------------------------------------------------------------
+connections %>%
+  write_csv("data/graphic-connections.csv")
+
 nodes <- connections %>%
   select(-n) %>%
   gather(key = "order", value = "name") %>%
